@@ -2,9 +2,13 @@
     <img src="./frontend/public/icon.svg" width="128" alt="" />
 </div>
 
-# Dockge
+# Dockge-PVE
 
-A fancy, easy-to-use and reactive self-hosted docker compose.yaml stack-oriented manager.
+A Proxmox-focused fork of [Dockge](https://github.com/louislam/dockge) with a full xterm.js PTY console, Chromium-friendly copy/paste, correct terminal sizing/terminfo, an optional SSH-backed PVE host shell, and an admin-toolbox Docker image.
+
+See **[DOCKGE-PVE.md](./DOCKGE-PVE.md)** for the fork-specific design, PVE Compose example, environment variables, build instructions, and Docker Hub publishing workflow. The original Dockge copyright and MIT license are retained.
+
+The upstream project describes Dockge as a fancy, easy-to-use and reactive self-hosted docker compose.yaml stack-oriented manager.
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/louislam/dockge?logo=github&style=flat)](https://github.com/louislam/dockge) [![Docker Pulls](https://img.shields.io/docker/pulls/louislam/dockge?logo=docker)](https://hub.docker.com/r/louislam/dockge/tags) [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/louislam/dockge/latest?label=docker%20image%20ver.)](https://hub.docker.com/r/louislam/dockge/tags) [![GitHub last commit (branch)](https://img.shields.io/github/last-commit/louislam/dockge/master?logo=github)](https://github.com/louislam/dockge/commits/master/)
 

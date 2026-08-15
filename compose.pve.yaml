@@ -1,0 +1,38 @@
+name: dockge-pve
+
+services:
+  dockge:
+    # Replace with your Docker Hub namespace after publishing the fork.
+    image: ${DOCKGE_IMAGE:-yourdockerhubuser/dockge-pve:latest}
+    container_name: dockge
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      - ./ssh:/root/.ssh
+
+      # Dockge-managed Compose stacks. Host and container paths must match.
+      - /data/Dockers/PVE/Dockers:/data/Dockers/PVE/Dockers
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DOCKGE_STACKS_DIR: /data/Dockers/PVE/Dockers
+      DOCKGE_ENABLE_CONSOLE: "true"
+
+      # Correct PTY/terminfo behavior for xterm.js.
+      DOCKGE_TERMINAL_TYPE: xterm-256color
+
+      # Optional PVE host shell exposed as a second Console target.
+      DOCKGE_HOST_SHELL_ENABLED: "true"
+      DOCKGE_CONSOLE_DEFAULT_TARGET: host
+      DOCKGE_HOST_SSH_HOST: host.docker.internal
+      DOCKGE_HOST_SSH_PORT: "2222"
+      DOCKGE_HOST_SSH_USER: root
+
+      # Optional when the key name is not a default OpenSSH key filename.
+      # DOCKGE_HOST_SSH_IDENTITY: /root/.ssh/id_ed25519
+
+      # accept-new trusts a host on first use but rejects a later changed key.
+      DOCKGE_HOST_SSH_STRICT_HOST_KEY_CHECKING: accept-new
