@@ -62,13 +62,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ############################################
 # Frontend build
 ############################################
+
 FROM base AS frontend_build
+
 WORKDIR /app
+
 COPY ./package.json ./package.json
 COPY ./package-lock.json ./package-lock.json
+
 RUN npm ci
+
 COPY . .
-RUN npm run build:frontend
+
+RUN npm run check-ts && npm run build:frontend
 
 ############################################
 # Production Node dependencies

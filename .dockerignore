@@ -1,4 +1,5 @@
-# Should be identical to .gitignore
+# Dockge-PVE Docker build context
+
 .env
 node_modules
 .idea
@@ -7,11 +8,15 @@ stacks
 tmp
 /private
 
-# Docker extra
-docker
-frontend
-.editorconfig
-.eslintrc.cjs
+# Generated frontend output must always come from the build stage
+frontend-dist
+
+# Git metadata
 .git
 .gitignore
+
+# Docker build definitions are not needed inside the image filesystem
+docker
+
+# Documentation not needed at runtime
 README.md
