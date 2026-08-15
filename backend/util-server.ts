@@ -34,9 +34,19 @@ export interface Arguments {
 }
 
 // Some config values are required
+export type ConsoleTarget = "local" | "host";
+
 export interface Config extends Arguments {
     dataDir : string;
     stacksDir : string;
+    terminalType : string;
+    consoleDefaultTarget : ConsoleTarget;
+    consoleHostEnabled : boolean;
+    consoleHostSshHost : string;
+    consoleHostSshPort : number;
+    consoleHostSshUser : string;
+    consoleHostSshIdentity? : string;
+    consoleHostSshStrictHostKeyChecking : "yes" | "no" | "accept-new";
 }
 
 export function checkLogin(socket : DockgeSocket) {

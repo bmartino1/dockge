@@ -1,5 +1,6 @@
 import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
+import type { ConsoleTarget } from "../util-server";
 import { log } from "../log";
 import { InteractiveTerminal, MainTerminal, Terminal } from "../terminal";
 import { Stack } from "../stack";
@@ -33,31 +34,36 @@ export class TerminalSocketHandler extends AgentSocketHandler {
             }
         });
 
-        // Main Terminal
+        // Main Terminal. Keep the original socket signature for compatibility
+        // with older Dockge agents; the requested target is encoded in the name.
         agentSocket.on("mainTerminal", async (terminalName : unknown, callback) => {
             try {
                 checkLogin(socket);
 
-                // Throw an error if console is not enabled
                 if (!server.config.enableConsole) {
                     throw new ValidationError("Console is not enabled.");
                 }
 
-                // TODO: Reset the name here, force one main terminal for now
-                terminalName = "console";
-
-                if (typeof(terminalName) !== "string") {
+                if (typeof terminalName !== "string") {
                     throw new ValidationError("Terminal name must be a string.");
                 }
 
-                log.debug("mainTerminal", "Terminal name: " + terminalName);
+                const consoleTarget : ConsoleTarget = terminalName === "console-host" ? "host" : "local";
+                if (consoleTarget === "host" && !server.config.consoleHostEnabled) {
+                    throw new ValidationError("Host console is not enabled.");
+                }
 
-                let terminal = Terminal.getTerminal(terminalName);
+                // Keep the upstream local-console name for compatibility with
+                // older agents. The host target gets its own PTY name.
+                const resolvedTerminalName = consoleTarget === "host" ? "console-host" : "console";
+                log.debug("mainTerminal", `Terminal name: ${resolvedTerminalName}`);
+
+                let terminal = Terminal.getTerminal(resolvedTerminalName);
 
                 if (!terminal) {
-                    terminal = new MainTerminal(server, terminalName);
+                    terminal = new MainTerminal(server, resolvedTerminalName, consoleTarget);
                     terminal.rows = 50;
-                    log.debug("mainTerminal", "Terminal created");
+                    log.debug("mainTerminal", `Terminal created for target: ${consoleTarget}`);
                 }
 
                 terminal.join(socket);
@@ -65,18 +71,36 @@ export class TerminalSocketHandler extends AgentSocketHandler {
 
                 callbackResult({
                     ok: true,
+                    terminalName: resolvedTerminalName,
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);
             }
         });
 
-        // Check if MainTerminal is enabled
+        // Check if MainTerminal is enabled and advertise available targets.
         agentSocket.on("checkMainTerminal", async (callback) => {
             try {
                 checkLogin(socket);
+
+                const targets = [
+                    {
+                        id: "local",
+                        label: "Dockge Shell",
+                    },
+                ];
+
+                if (server.config.consoleHostEnabled) {
+                    targets.unshift({
+                        id: "host",
+                        label: "PVE Host Shell",
+                    });
+                }
+
                 callbackResult({
                     ok: server.config.enableConsole,
+                    targets,
+                    defaultTarget: server.config.consoleDefaultTarget,
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);
@@ -112,6 +136,21 @@ export class TerminalSocketHandler extends AgentSocketHandler {
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);
+            }
+        });
+
+        // Leave an interactive terminal without killing the PTY. This prevents a
+        // socket from staying subscribed after the user switches Console targets.
+        agentSocket.on("terminalLeave", async (terminalName : unknown) => {
+            try {
+                checkLogin(socket);
+                if (typeof(terminalName) !== "string") {
+                    throw new ValidationError("Terminal name must be a string.");
+                }
+
+                Terminal.getTerminal(terminalName)?.leave(socket);
+            } catch (e) {
+                log.debug("terminalLeave", e instanceof Error ? e.message : String(e));
             }
         });
 

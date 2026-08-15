@@ -87,7 +87,7 @@ export class DockgeServer {
         // Catch unexpected errors here
         let unexpectedErrorHandler = (error : unknown) => {
             console.trace(error);
-            console.error("If you keep encountering errors, please report to https://github.com/louislam/dockge");
+            console.error("If you keep encountering errors, please review the Dockge-PVE container logs and fork documentation.");
         };
         process.addListener("unhandledRejection", unexpectedErrorHandler);
         process.addListener("uncaughtException", unexpectedErrorHandler);
@@ -155,6 +155,27 @@ export class DockgeServer {
         this.config.dataDir = args.dataDir || process.env.DOCKGE_DATA_DIR || "./data/";
         this.config.stacksDir = args.stacksDir || process.env.DOCKGE_STACKS_DIR || defaultStacksDir;
         this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
+
+        // Terminal settings for the enhanced web console.
+        this.config.terminalType = process.env.DOCKGE_TERMINAL_TYPE || "xterm-256color";
+        this.config.consoleHostEnabled = process.env.DOCKGE_HOST_SHELL_ENABLED === "true";
+        this.config.consoleHostSshHost = process.env.DOCKGE_HOST_SSH_HOST || "host.docker.internal";
+        this.config.consoleHostSshUser = process.env.DOCKGE_HOST_SSH_USER || "root";
+        this.config.consoleHostSshIdentity = process.env.DOCKGE_HOST_SSH_IDENTITY || undefined;
+
+        const sshPort = Number(process.env.DOCKGE_HOST_SSH_PORT || 22);
+        this.config.consoleHostSshPort = Number.isInteger(sshPort) && sshPort > 0 && sshPort <= 65535 ? sshPort : 22;
+
+        const strictHostKeyChecking = process.env.DOCKGE_HOST_SSH_STRICT_HOST_KEY_CHECKING;
+        if (strictHostKeyChecking === "yes" || strictHostKeyChecking === "no" || strictHostKeyChecking === "accept-new") {
+            this.config.consoleHostSshStrictHostKeyChecking = strictHostKeyChecking;
+        } else {
+            this.config.consoleHostSshStrictHostKeyChecking = "accept-new";
+        }
+
+        const requestedConsoleTarget = process.env.DOCKGE_CONSOLE_DEFAULT_TARGET;
+        this.config.consoleDefaultTarget = requestedConsoleTarget === "host" && this.config.consoleHostEnabled ? "host" : "local";
+
         this.stacksDir = this.config.stacksDir;
 
         log.debug("server", this.config);

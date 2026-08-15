@@ -5,7 +5,7 @@ import { Settings } from "./settings";
 
 // How much time in ms to wait between update checks
 const UPDATE_CHECKER_INTERVAL_MS = 1000 * 60 * 60 * 48;
-const CHECK_URL = "https://dockge.kuma.pet/version";
+const CHECK_URL = process.env.DOCKGE_UPDATE_CHECK_URL || "";
 
 class CheckVersion {
     version = packageJSON.version;
@@ -14,7 +14,9 @@ class CheckVersion {
 
     async startInterval() {
         const check = async () => {
-            if (await Settings.get("checkUpdate") === false) {
+            // Fork builds do not compare themselves to upstream Dockge by default.
+            // Set DOCKGE_UPDATE_CHECK_URL to a compatible version endpoint if wanted.
+            if (!CHECK_URL || await Settings.get("checkUpdate") === false) {
                 return;
             }
 

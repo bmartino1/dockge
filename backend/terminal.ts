@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
 import { LimitQueue } from "./utils/limit-queue";
 import { DockgeSocket } from "./util-server";
+import type { ConsoleTarget } from "./util-server";
 import {
     PROGRESS_TERMINAL_ROWS,
     TERMINAL_COLS,
@@ -112,11 +113,25 @@ export class Terminal {
         }
 
         try {
+            const terminalEnv : Record<string, string> = {};
+            for (const [key, value] of Object.entries(process.env)) {
+                if (typeof value === "string") {
+                    terminalEnv[key] = value;
+                }
+            }
+
+            terminalEnv.TERM = this.server.config.terminalType || "xterm-256color";
+            terminalEnv.COLORTERM = terminalEnv.COLORTERM || "truecolor";
+
             this._ptyProcess = pty.spawn(this.file, this.args, {
-                name: this.name,
+                // node-pty uses this value as the terminal emulation type and exposes
+                // it to child processes as TERM. The old code used the Dockge session
+                // name (for example "console"), which is not a valid terminfo entry.
+                name: terminalEnv.TERM,
                 cwd: this.cwd,
-                cols: TERMINAL_COLS,
+                cols: this.cols,
                 rows: this.rows,
+                env: terminalEnv,
             });
 
             // On Data
@@ -264,30 +279,57 @@ export class InteractiveTerminal extends Terminal {
 }
 
 /**
- * User interactive terminal that use bash or powershell with limited commands such as docker, ls, cd, dir
+ * Full interactive console terminal.
+ *
+ * The local target opens a shell inside the Dockge container. The host target
+ * opens an SSH PTY to the configured host (intended for Proxmox VE).
  */
 export class MainTerminal extends InteractiveTerminal {
-    constructor(server : DockgeServer, name : string) {
-        let shell;
+    public target : ConsoleTarget;
+
+    constructor(server : DockgeServer, name : string, target : ConsoleTarget = "local") {
+        let file : string;
+        let args : string[] = [];
 
         // Throw an error if console is not enabled
         if (!server.config.enableConsole) {
             throw new Error("Console is not enabled.");
         }
 
-        if (os.platform() === "win32") {
+        if (target === "host") {
+            if (!server.config.consoleHostEnabled) {
+                throw new Error("Host console is not enabled.");
+            }
+
+            if (!commandExistsSync("ssh")) {
+                throw new Error("Host console requires the OpenSSH client inside the Dockge image.");
+            }
+
+            file = "ssh";
+            args = [
+                "-tt",
+                "-p", String(server.config.consoleHostSshPort),
+                "-o", `StrictHostKeyChecking=${server.config.consoleHostSshStrictHostKeyChecking}`,
+                "-o", "ServerAliveInterval=30",
+                "-o", "ServerAliveCountMax=3",
+            ];
+
+            if (server.config.consoleHostSshIdentity) {
+                args.push("-i", server.config.consoleHostSshIdentity);
+            }
+
+            args.push(`${server.config.consoleHostSshUser}@${server.config.consoleHostSshHost}`);
+        } else if (os.platform() === "win32") {
             if (commandExistsSync("pwsh.exe")) {
-                shell = "pwsh.exe";
+                file = "pwsh.exe";
             } else {
-                shell = "powershell.exe";
+                file = "powershell.exe";
             }
         } else {
-            shell = "bash";
+            file = commandExistsSync("bash") ? "bash" : "sh";
         }
-        super(server, name, shell, [], server.stacksDir);
-    }
 
-    public write(input : string) {
-        super.write(input);
+        super(server, name, file, args, server.stacksDir);
+        this.target = target;
     }
 }
